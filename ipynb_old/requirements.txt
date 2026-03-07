@@ -1,0 +1,9 @@
+torch
+torchvision
+torchaudio
+pillow
+tqdm
+pandas
+transformers
+scikit-learn
+protobuf
