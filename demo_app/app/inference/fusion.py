@@ -10,9 +10,11 @@ import matplotlib.pyplot as plt
 from .models import QualityAwareGatedFusion
 
 EMOTIONS = ["Admiration", "Amusement", "Determination", "Empathic Pain", "Excitement", "Joy"]
+_MOD_NAMES = ["audio", "text", "face"]
 
 
-def run_fusion(preds: list, avails: list, qualities: list, cfg) -> bytes:
+def _compute_fusion(preds: list, avails: list, qualities: list, cfg):
+    """Run calibration + fusion model + denorm. Returns (fused [E], weights [3,E], avails_arr)."""
     preds_arr = np.stack(preds, axis=0)  # [3, E]
     avails_arr = np.array(avails, dtype=bool)
     quals_arr = np.array(qualities, dtype=np.float32)
@@ -50,6 +52,23 @@ def run_fusion(preds: list, avails: list, qualities: list, cfg) -> bytes:
     else:
         fused = fused_norm
         print("[fusion] norm file not found — showing z-score scale")
+
+    return fused, weights, avails_arr
+
+
+def run_fusion_json(preds: list, avails: list, qualities: list, cfg) -> dict:
+    fused, weights, avails_arr = _compute_fusion(preds, avails, qualities, cfg)
+    mean_w = weights.mean(axis=1)  # [3]
+    return {
+        "emotions": {em: float(round(float(v), 6)) for em, v in zip(EMOTIONS, fused)},
+        "modality_weights": {m: float(round(float(w), 6)) for m, w in zip(_MOD_NAMES, mean_w)},
+        "modality_available": {m: bool(a) for m, a in zip(_MOD_NAMES, avails_arr)},
+        "modality_quality": {m: float(round(float(q), 6)) for m, q in zip(_MOD_NAMES, qualities)},
+    }
+
+
+def run_fusion(preds: list, avails: list, qualities: list, cfg) -> bytes:
+    fused, weights, avails_arr = _compute_fusion(preds, avails, qualities, cfg)
 
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
     fig.suptitle("Emotion Recognition", fontsize=13, fontweight="bold")
