@@ -1,29 +1,28 @@
-FROM nvidia/cuda:12.8.0-cudnn9-runtime-ubuntu22.04
+FROM python:3.10-slim
 
-ENV DEBIAN_FRONTEND=noninteractive
+# Declare GPU capabilities so the NVIDIA Container Toolkit exposes the device.
+# PyTorch cu128 wheels bundle CUDA runtime/cuDNN, so no nvidia/cuda base image needed.
+ENV NVIDIA_VISIBLE_DEVICES=all
+ENV NVIDIA_DRIVER_CAPABILITIES=compute,utility
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    python3.10 \
-    python3.10-dev \
-    python3-pip \
     ffmpeg \
     libsm6 \
     libxext6 \
     libgl1 \
     && rm -rf /var/lib/apt/lists/*
 
-RUN ln -sf /usr/bin/python3.10 /usr/bin/python3 && \
-    ln -sf /usr/bin/python3.10 /usr/bin/python && \
-    ln -sf /usr/bin/pip3 /usr/bin/pip
-
 WORKDIR /app
 
-# PyTorch with CUDA 12.8 wheels (matches the host environment)
+# PyTorch with CUDA 12.8 wheels (matches the host environment).
+# --extra-index-url keeps PyPI as primary so typing-extensions and other
+# dependencies resolve from PyPI; torch/torchaudio/torchvision come from
+# the cu128 index.
 RUN pip install --no-cache-dir \
     torch==2.9.1 \
     torchaudio==2.9.1 \
     torchvision==0.24.1 \
-    --index-url https://download.pytorch.org/whl/cu128
+    --extra-index-url https://download.pytorch.org/whl/cu128
 
 # Remaining ML + API dependencies
 COPY pyproject.toml .
