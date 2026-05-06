@@ -1,0 +1,23 @@
+services:
+  emi-demo:
+    build: .
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      # App code — mounted so edits on host take effect without rebuild (--reload picks them up)
+      - ./app:/app/app
+      - ./frontend:/app/frontend
+      # Model weights — read-only, paths in .env must resolve inside the container
+      - /home/danila/networks/data:/home/danila/networks/data:ro
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [gpu]
+    restart: unless-stopped

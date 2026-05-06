@@ -1,0 +1,32 @@
+[project]
+name = "emi-demo-app"
+version = "0.1.0"
+description = "FastAPI demo for ABAW-8 EMI multimodal emotion recognition"
+requires-python = ">=3.10"
+dependencies = [
+    "accelerate==1.12.0",
+    "emotiefflib[torch]==1.1.1",
+    "facenet-pytorch==2.5.3",
+    "faster-whisper==1.2.1",
+    "matplotlib==3.10.8",
+    "numpy==2.2.6",
+    "opencv-python-headless==4.13.0.90",
+    "pillow==12.0.0",
+    "protobuf==6.33.1",
+    "sentencepiece==0.2.1",
+    "soundfile==0.13.1",
+    "tqdm==4.67.1",
+    "transformers==4.57.3",
+    # FastAPI stack
+    "fastapi==0.115.12",
+    "uvicorn[standard]==0.34.3",
+    "python-multipart==0.0.20",
+    "pydantic-settings==2.9.1",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["app"]

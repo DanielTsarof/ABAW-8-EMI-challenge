@@ -1,0 +1,253 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EMI — Emotion Recognition Demo</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: system-ui, -apple-system, sans-serif;
+      background: #0f1117;
+      color: #e2e8f0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+
+    h1 {
+      font-size: 1.75rem;
+      font-weight: 700;
+      margin-bottom: 0.4rem;
+      letter-spacing: -0.02em;
+    }
+
+    .subtitle {
+      color: #94a3b8;
+      font-size: 0.9rem;
+      margin-bottom: 2rem;
+      text-align: center;
+    }
+
+    .card {
+      background: #1e2330;
+      border: 1px solid #2d3348;
+      border-radius: 12px;
+      padding: 2rem;
+      width: 100%;
+      max-width: 600px;
+    }
+
+    label.drop-zone {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      border: 2px dashed #3b4460;
+      border-radius: 8px;
+      padding: 2.5rem 1rem;
+      cursor: pointer;
+      transition: border-color 0.2s, background 0.2s;
+      gap: 0.6rem;
+    }
+
+    label.drop-zone:hover,
+    label.drop-zone.drag-over {
+      border-color: #6366f1;
+      background: rgba(99, 102, 241, 0.06);
+    }
+
+    label.drop-zone svg { opacity: 0.5; }
+
+    #file-name {
+      font-size: 0.85rem;
+      color: #94a3b8;
+    }
+
+    #file-input { display: none; }
+
+    button#submit-btn {
+      margin-top: 1.25rem;
+      width: 100%;
+      padding: 0.75rem;
+      border: none;
+      border-radius: 8px;
+      background: #6366f1;
+      color: #fff;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.2s, opacity 0.2s;
+    }
+
+    button#submit-btn:hover:not(:disabled) { background: #4f52d0; }
+    button#submit-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    #status {
+      margin-top: 1rem;
+      min-height: 1.4rem;
+      font-size: 0.88rem;
+      text-align: center;
+      color: #94a3b8;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 16px;
+      height: 16px;
+      border: 2px solid #6366f1;
+      border-top-color: transparent;
+      border-radius: 50%;
+      animation: spin 0.7s linear infinite;
+      vertical-align: middle;
+      margin-right: 6px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #error-box {
+      display: none;
+      margin-top: 1rem;
+      padding: 0.75rem 1rem;
+      background: rgba(239, 68, 68, 0.12);
+      border: 1px solid rgba(239, 68, 68, 0.35);
+      border-radius: 8px;
+      color: #fca5a5;
+      font-size: 0.875rem;
+    }
+
+    #result-section {
+      display: none;
+      margin-top: 2rem;
+      width: 100%;
+      max-width: 960px;
+      text-align: center;
+    }
+
+    #result-section h2 {
+      font-size: 1.1rem;
+      margin-bottom: 1rem;
+      color: #94a3b8;
+    }
+
+    #result-img {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid #2d3348;
+    }
+
+    #download-link {
+      display: inline-block;
+      margin-top: 0.75rem;
+      font-size: 0.85rem;
+      color: #6366f1;
+      text-decoration: none;
+    }
+
+    #download-link:hover { text-decoration: underline; }
+  </style>
+</head>
+<body>
+  <h1>Multimodal Emotion Recognition</h1>
+  <p class="subtitle">
+    WavLM · GTE · EmotiEffNet-B0 → QualityAwareGatedFusion<br>
+    Admiration &middot; Amusement &middot; Determination &middot; Empathic Pain &middot; Excitement &middot; Joy
+  </p>
+
+  <div class="card">
+    <label class="drop-zone" for="file-input" id="drop-zone">
+      <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <path d="M15 10l-3-3m0 0l-3 3m3-3v8M5 17H4a2 2 0 01-2-2V5a2 2 0 012-2h11.5L18 7v8a2 2 0 01-2 2h-1"/>
+      </svg>
+      <span>Click or drag an <strong>.mp4</strong> file here</span>
+      <span id="file-name">No file selected</span>
+    </label>
+    <input type="file" id="file-input" accept=".mp4" />
+
+    <button id="submit-btn" disabled>Analyse</button>
+    <div id="status"></div>
+    <div id="error-box"></div>
+  </div>
+
+  <div id="result-section">
+    <h2>Result</h2>
+    <img id="result-img" alt="Emotion prediction chart" />
+    <br />
+    <a id="download-link" download="emotion_prediction.png">Download chart</a>
+  </div>
+
+  <script>
+    const fileInput  = document.getElementById('file-input');
+    const dropZone   = document.getElementById('drop-zone');
+    const fileName   = document.getElementById('file-name');
+    const submitBtn  = document.getElementById('submit-btn');
+    const statusEl   = document.getElementById('status');
+    const errorBox   = document.getElementById('error-box');
+    const resultSec  = document.getElementById('result-section');
+    const resultImg  = document.getElementById('result-img');
+    const dlLink     = document.getElementById('download-link');
+
+    let selectedFile = null;
+
+    function setFile(file) {
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith('.mp4')) {
+        showError('Please select an .mp4 file.');
+        return;
+      }
+      selectedFile = file;
+      fileName.textContent = file.name;
+      submitBtn.disabled = false;
+      hideError();
+    }
+
+    fileInput.addEventListener('change', () => setFile(fileInput.files[0]));
+
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+    dropZone.addEventListener('drop', e => {
+      e.preventDefault();
+      dropZone.classList.remove('drag-over');
+      setFile(e.dataTransfer.files[0]);
+    });
+
+    submitBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      submitBtn.disabled = true;
+      hideError();
+      resultSec.style.display = 'none';
+      setStatus('<span class="spinner"></span> Processing… this may take a minute');
+
+      const form = new FormData();
+      form.append('video', selectedFile);
+
+      try {
+        const resp = await fetch('/api/predict', { method: 'POST', body: form });
+        if (!resp.ok) {
+          const msg = await resp.text().catch(() => resp.statusText);
+          throw new Error(msg);
+        }
+        const blob = await resp.blob();
+        const url  = URL.createObjectURL(blob);
+        resultImg.src = url;
+        dlLink.href   = url;
+        resultSec.style.display = 'block';
+        setStatus('');
+      } catch (err) {
+        showError('Error: ' + err.message);
+        setStatus('');
+      } finally {
+        submitBtn.disabled = false;
+      }
+    });
+
+    function setStatus(html) { statusEl.innerHTML = html; }
+    function showError(msg)  { errorBox.textContent = msg; errorBox.style.display = 'block'; }
+    function hideError()     { errorBox.style.display = 'none'; }
+  </script>
+</body>
+</html>
